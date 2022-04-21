@@ -1,0 +1,295 @@
+<template>
+<div>
+  <div>
+    <img src="@/assets/img/banner.png" @click="routerPush({name:'ReferralForm',params:{id:user.staff_uid}})" id="bottom-bar-item-ReferralForm" class="banner-area" alt="">
+  </div>
+  <md-card class="md-card" v-if="userStatus && user">
+    <md-card-content>
+      <div class="invite-card-title">
+        <h2 class="center">代理予約をしてLINEで送信</h2>
+        <p class="form_alert">※LINE送信後、予約が確定すると<br>キャッシュになります。</p>
+      </div>
+      <div class="card-reservation">
+        <div class="md-layout-item">
+        <md-field class="md-field">
+          <md-icon>store</md-icon>
+          <label>店名</label>
+          <md-input v-model="user.shopName"></md-input>
+        </md-field>
+        <md-datepicker v-model="inputDate" md-immediately required>
+          <label>日付*</label>
+        </md-datepicker>
+        <md-field>
+          <md-icon>schedule</md-icon>
+          <label>時間</label>
+          <md-select v-model="data.time" id="time" required>
+            <md-option 
+              v-for="(time, i) in times"
+              :key="i" 
+              :value="time">{{time}}
+            </md-option>
+          </md-select>
+        </md-field>
+        <md-field>
+          <label>ゲスト名</label>
+          <md-input v-model="data.guestName" required></md-input>
+        </md-field>
+        <md-field>
+          <label>人数</label>
+          <md-select v-model="data.people" id="people" required>
+            <md-option 
+              v-for="(people, i) in peoples"
+              :key="i" 
+              :value="people">{{peoplesString[i]}}
+            </md-option>
+          </md-select>
+        </md-field>
+        <md-field>
+          <label>TEL</label>
+          <md-input v-model="data.tel"></md-input>
+        </md-field>
+        <md-field>
+          <label>メッセージ(※自由に編集できます)</label>
+          <md-textarea v-model="data.lineMessage"></md-textarea>
+        </md-field>
+        </div>
+      </div>
+    </md-card-content>
+    <md-button @click="saveInviteData" class="line-button" :disabled="activateSubmit">LINE送信</md-button>
+      <p class="form_alert" v-if="activateSubmit">*の部分は必須入力</p>
+  </md-card>
+  <div v-else>
+    <router-link to="/signin">sign in now!</router-link>
+  </div>
+</div>
+</template>
+
+<script>
+import Firebase from '@/api/firebase/firebase'
+import Firestore from '@/api/firebase/firestore'
+import router from '@/router'
+import { mapGetters } from 'vuex'
+import { required, minLength } from 'vuelidate/lib/validators'
+
+export default {
+  name: 'InviteForm',
+  data() {
+    return {
+      data: {
+        tel: this.$store.getters.user.shopTelNumber,
+        date: '',
+        time:'',
+        guestName:'',
+        people:'',
+        shopName: '',
+        lineMessage: this.$store.getters.user.lineMessage,
+        shopImageURL_1: ''
+      },
+      today:`${new Date().getMonth()+1}/${new Date().getDate()}`,
+      tomorrow: `${new Date().getMonth()+1}/${new Date().getDate() + 1}`,
+      times:
+        [
+        "17:00","17:30",
+        "18:00","18:30",
+        "19:00","19:30",
+        "20:00","20:30",
+        "21:00","21:30",
+        "22:00","22:30",
+        "23:00","23:30",
+        "24:00","24:30",
+        "25:00","25:30",
+        "26:00","26:30",
+        "27:00","27:30",
+        "28:00"
+        ],
+      peoples: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25],
+      peoplesString: ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25名以上"],
+      documentID: '',
+      inputDate: ''
+    }
+  },
+  created: function(){
+    Firebase.onAuth()
+    this.getShopImageURL()
+    this.getInviteData()
+    this.getReservationData()
+    this.data.lineMessage = this.$store.getters.user.lineMessage
+  },
+  computed: {
+    ...mapGetters({
+      userStatus: 'isSignedIn',
+      user: 'user',
+      shopImageURL: 'shopImageURL',
+      inviteAllDataLength: 'inviteAllDataLength',
+      reservationdataLength: 'reservationdataLength',
+      inviteDataLength: 'inviteDataLength',
+      peopleOfReservationData: 'peopleOfReservationData'
+    }),
+    url(){
+      return `http://line.me/R/msg/text/?${this.data.lineMessage}%0D%0Ahttps://rndv-vip.com/${this.documentID}`
+    },
+    activateSubmit(){
+      if(this.data.date != "" && this.data.time != "" && this.data.guestName != "" && this.people != ""){
+        return false
+      } else {
+        return true
+      }
+    }
+  },
+  watch: {
+    inputDate: {
+      handler: function(){
+        let month, day, date
+        let inputDate = String(this.inputDate).split(' ')
+        day = String(Number(inputDate[2]))
+        switch (inputDate[1]){
+          case "Jan":
+            month = "1"
+            break;
+          case "Feb":
+            month = "2"
+            break;
+          case "Mar":
+            month = "3"
+            break;
+          case "Apr":
+            month = "4"
+            break;
+          case "May":
+            month = "5"
+            break;
+          case "Jun":
+            month = "6"
+            break;
+          case "Jul":
+            month = "7"
+            break;
+          case "Aug":
+            month = "8"
+            break;
+          case "Sep":
+            month = "9"
+            break;
+          case "Oct":
+            month = "10"
+            break;
+          case "Nov":
+            month = "11"
+            break;
+          case "Dec":
+            month = "12"
+            break;
+        }
+        date = `${month}/${day}`
+        this.data.date = date
+      },
+      deep: true
+    }
+  },
+  methods: {
+    logout() {
+      Firebase.logout();
+    },
+    saveInviteData(){
+      this.documentID = this.user.staff_uid + Date.now()
+      Firestore.saveInviteData(this.user, this.data, this.documentID, this.url)
+      Firestore.changeLineMessageOfStaffData(this.user.staff_uid, this.data)
+      router.push({name:'InviteList',params:{id:this.$store.getters.user.staff_uid}})
+    },
+    launchLine(){
+      location.href = this.url;
+    },
+    reject(){
+      if(!this.userStatus){
+        this.$router.push("/signin")
+      }
+    },
+    getInviteData(){
+      Firestore.getInviteData(this.user.staff_uid)
+    },
+    getReservationData(){
+      Firestore.getReservationData(this.user.staff_uid)
+    },
+    routerPush(router){
+      this.$router.push(router)
+    }
+  }
+}
+</script>
+
+<style scoped>
+
+a {
+  color: #42b983;
+}
+
+.banner-area{
+  margin-top: 57px;
+}
+
+.line-button{
+  color: white;
+  background-color:#6cc655;
+  box-shadow: 0 3px 1px -2px rgba(0,0,0,.2), 
+              0 2px 2px 0 rgba(0,0,0,.14),
+              0 1px 5px 0 rgba(0,0,0,.12);
+  min-width: 88px;
+  height: 36px;
+  margin: 6px 8px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  transition:0.4s;
+}
+
+.line-button:hover {
+  opacity:0.7;
+}
+
+.md-card{
+  width: 90%;
+  /* margin-top: 70px; */
+  display: inline-block;
+  vertical-align: top;
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 80px;
+}
+.md-field{
+  height: 10px;
+  margin-bottom: 10px;
+}
+.md-has-textarea{
+  height: 150px;
+  margin-bottom: 10px;
+}
+
+.md-field:after {
+  height: 0px;
+  border-bottom: solid 1px #E0E0E0;
+}
+.md-button.md-theme-default.md-raised:not([disabled]).md-accent {
+    color: white;
+}
+.md-field.md-theme-default:before {
+    background-color: #F8F2E3;
+    background-color: var(--md-theme-default-accent, #FB6359);
+}
+.md-field.md-theme-default.md-focused label {
+    color: var(--md-theme-default-accent, #FB6359);
+}
+.md-field.md-theme-default.md-focused > .md-icon {
+    color: var(--md-theme-default-accent, #FB6359);
+}
+.form_alert {
+  color: red;
+}
+
+</style>
